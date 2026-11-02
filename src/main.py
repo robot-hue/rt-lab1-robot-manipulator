@@ -15,6 +15,10 @@ DEADLINE_IMPLICIT = "неявный (D = T)"
 DEADLINE_CONSTRAINED = "ограниченный (D ≤ T)"
 DEADLINE_ARBITRARY = "произвольный (D > T)"
 
+# Классы системы
+SYSTEM_HARD = "жёсткого реального времени"
+SYSTEM_SOFT = "мягкого реального времени"
+
 def _normalize(text: str) -> str:
     """Привести строку к единому виду: без пробелов по краям, строчные, ё -> е."""
     return text.strip().lower().replace("ё", "е")
@@ -135,4 +139,30 @@ def deadline_type(task: Task) -> str:
     if task.D < task.T:
         return DEADLINE_CONSTRAINED
     return DEADLINE_ARBITRARY
+
+
+def _hard_tasks(tasks: list[Task]) -> list[Task]:
+    """Выбрать только задачи жёсткого класса."""
+    return [task for task in tasks if task.hardness is Hardness.HARD]
+
+
+def classify_system(tasks: list[Task]) -> str:
+    """Система жёсткого РВ, если есть хотя бы одна жёсткая задача, иначе мягкого."""
+    return SYSTEM_HARD if _hard_tasks(tasks) else SYSTEM_SOFT
+
+
+def critical_task(tasks: list[Task]) -> Task | None:
+    """Критическая задача: жёсткая задача с минимальным запасом L."""
+    hard = _hard_tasks(tasks)
+    if not hard:
+        return None
+    return min(hard, key=slack)
+
+
+def required_reaction_time(tasks: list[Task]) -> float:
+    """R_треб = min(D) по жёстким задачам, а если их нет, по всем задачам."""
+    if not tasks:
+        raise ValueError("Список задач пуст")
+    pool = _hard_tasks(tasks) or tasks
+    return min(task.D for task in pool)
     
