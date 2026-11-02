@@ -5,10 +5,15 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+# Типы дедлайна
+DEADLINE_IMPLICIT = "неявный (D = T)"
+DEADLINE_CONSTRAINED = "ограниченный (D ≤ T)"
+DEADLINE_ARBITRARY = "произвольный (D > T)"
 
 def _normalize(text: str) -> str:
     """Привести строку к единому виду: без пробелов по краям, строчные, ё -> е."""
@@ -111,4 +116,23 @@ def load_variant(path: Path) -> tuple[list[Task], SystemConfig]:
             raise ValueError(f"Задача №{number}: {error}") from error
 
     return tasks, config
+
+
+def slack(task: Task) -> float:
+    """Запас времени L = D - C."""
+    return task.D - task.C
+
+
+def is_feasible(task: Task) -> bool:
+    """Задача выполнима, если запас неотрицателен: L >= 0."""
+    return slack(task) >= 0
+
+
+def deadline_type(task: Task) -> str:
+    """Определить тип дедлайна по соотношению D и T."""
+    if math.isclose(task.D, task.T):
+        return DEADLINE_IMPLICIT
+    if task.D < task.T:
+        return DEADLINE_CONSTRAINED
+    return DEADLINE_ARBITRARY
     
