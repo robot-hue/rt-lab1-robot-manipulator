@@ -233,6 +233,56 @@ def print_table(tasks: list[Task]) -> None:
         print(line(row))
 
 
+def all_feasible(tasks: list[Task]) -> bool:
+    """Все ли задачи выполнимы по условию L >= 0."""
+    return all(is_feasible(task) for task in tasks)
+
+
+def print_conclusion(tasks: list[Task], config: SystemConfig) -> None:
+    """Вывести текстовое заключение по результатам расчёта."""
+    network = "есть" if config.has_network else "нет"
+
+    print()
+    print("Заключение")
+    print("==========")
+    print(f"Класс системы: {classify_system(tasks)}")
+    print(
+        f"Архитектура: {classify_architecture(config.n_cpu, config.has_network)} "
+        f"(процессоров: {config.n_cpu}, сеть: {network})"
+    )
+
+    critical = critical_task(tasks)
+    if critical is None:
+        print("Критическая задача: нет (жёстких задач в системе нет)")
+    else:
+        print(f"Критическая задача: «{critical.name}», L = {fmt(slack(critical))} мс")
+
+    print(f"Требуемое время реакции R_треб = {fmt(required_reaction_time(tasks))} мс")
+
+    u = utilization(tasks)
+    u_text = "выполняется" if utilization_ok(u) else "не выполняется"
+    print(f"Загрузка процессора U = {u:.4f}, условие U ≤ {fmt(UTILIZATION_LIMIT)} {u_text}")
+
+    print("Запас по дедлайнам:")
+    for task in tasks:
+        status = "выполнима" if is_feasible(task) else "НЕ ВЫПОЛНИМА"
+        print(f"  - {task.name}: L = {fmt(slack(task))} мс, {status}")
+
+    problems = []
+    if not all_feasible(tasks):
+        problems.append("есть задачи с L < 0")
+    if not utilization_ok(u):
+        problems.append("U > 1")
+
+    if problems:
+        print("Вывод: необходимые условия не выполнены: " + ", ".join(problems) + ".")
+    else:
+        print(
+            "Вывод: необходимые условия выполнены (все L ≥ 0, U ≤ 1). "
+            "Планируемость требует отдельной проверки."
+        )
+
+
 def main() -> int:
     """Точка входа: прочитать файл, вывести таблицу. Возвращает код выхода."""
     sys.stdout.reconfigure(encoding="utf-8")
@@ -257,6 +307,7 @@ def main() -> int:
         return 1
 
     print_table(tasks)
+    print_conclusion(tasks, config)
     return 0
 
 
