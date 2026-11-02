@@ -19,6 +19,14 @@ DEADLINE_ARBITRARY = "произвольный (D > T)"
 SYSTEM_HARD = "жёсткого реального времени"
 SYSTEM_SOFT = "мягкого реального времени"
 
+# Предел загрузки процессора (необходимое условие U <= 1)
+UTILIZATION_LIMIT = 1.0
+
+# Архитектуры
+ARCH_SINGLE = "однопроцессорная"
+ARCH_MULTI = "многопроцессорная"
+ARCH_DISTRIBUTED = "распределённая"
+
 def _normalize(text: str) -> str:
     """Привести строку к единому виду: без пробелов по краям, строчные, ё -> е."""
     return text.strip().lower().replace("ё", "е")
@@ -165,4 +173,25 @@ def required_reaction_time(tasks: list[Task]) -> float:
         raise ValueError("Список задач пуст")
     pool = _hard_tasks(tasks) or tasks
     return min(task.D for task in pool)
+
+
+def utilization(tasks: list[Task]) -> float:
+    """Суммарная загрузка процессора U = сумма C_i / T_i."""
+    return sum(task.C / task.T for task in tasks)
+
+
+def utilization_ok(u: float) -> bool:
+    """Необходимое условие загрузки: U <= 1."""
+    return u <= UTILIZATION_LIMIT
+
+
+def classify_architecture(n_cpu: int, has_network: bool) -> str:
+    """Определить архитектуру: сеть -> распределённая, иначе по числу процессоров."""
+    if n_cpu < 1:
+        raise ValueError(f"Число процессоров должно быть >= 1, получено {n_cpu}")
+    if has_network:
+        return ARCH_DISTRIBUTED
+    if n_cpu == 1:
+        return ARCH_SINGLE
+    return ARCH_MULTI
     
