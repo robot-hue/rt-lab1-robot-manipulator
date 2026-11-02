@@ -4,11 +4,16 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+
+# Файл с данными по умолчанию: <корень проекта>/data/variant.json
+DEFAULT_INPUT = Path(__file__).resolve().parent.parent / "data" / "variant.json"
 
 # Типы дедлайна
 DEADLINE_IMPLICIT = "неявный (D = T)"
@@ -194,4 +199,67 @@ def classify_architecture(n_cpu: int, has_network: bool) -> str:
     if n_cpu == 1:
         return ARCH_SINGLE
     return ARCH_MULTI
+
+
+def fmt(value: float) -> str:
+    """Число без лишнего «.0»: 4.0 -> '4', 0.5 -> '0.5'."""
+    return f"{value:g}"
+
+
+def print_table(tasks: list[Task]) -> None:
+    """Вывести таблицу задач с автоматической шириной колонок."""
+    header = ["Задача", "Класс", "C", "D", "T", "L", "Выполнимо", "Тип дедлайна"]
+    rows = [
+        [
+            task.name,
+            task.hardness.value,
+            fmt(task.C),
+            fmt(task.D),
+            fmt(task.T),
+            fmt(slack(task)),
+            "да" if is_feasible(task) else "нет",
+            deadline_type(task),
+        ]
+        for task in tasks
+    ]
+    widths = [max(len(cell) for cell in column) for column in zip(header, *rows)]
+
+    def line(cells: list[str]) -> str:
+        return " | ".join(cell.ljust(width) for cell, width in zip(cells, widths))
+
+    print(line(header))
+    print("-+-".join("-" * width for width in widths))
+    for row in rows:
+        print(line(row))
+
+
+def main() -> int:
+    """Точка входа: прочитать файл, вывести таблицу. Возвращает код выхода."""
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
+    parser = argparse.ArgumentParser(
+        description="Классификация систем реального времени и расчёт времени реакции."
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        type=Path,
+        default=DEFAULT_INPUT,
+        help="путь к JSON-файлу с данными (по умолчанию data/variant.json)",
+    )
+    args = parser.parse_args()
+
+    try:
+        tasks, config = load_variant(args.input)
+    except (OSError, ValueError) as error:
+        print(f"Ошибка: {error}", file=sys.stderr)
+        return 1
+
+    print_table(tasks)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
     
